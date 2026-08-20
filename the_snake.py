@@ -68,8 +68,8 @@ class GameObject:
         pg.draw.rect(screen, BORDER_COLOR, rect, 1)
 
     def draw(self):
-        """Рисует объект в виде одной клетки."""
-        self.draw_cell(self.position)
+        """Заглушка: переопределяется в наследниках."""
+        pass
 
 
 class Apple(GameObject):
@@ -91,6 +91,10 @@ class Apple(GameObject):
             if self.position not in occupied_positions:
                 break
 
+    def draw(self):
+        """Отрисовывает яблоко."""
+        self.draw_cell(self.position)
+
 
 class BadApple(Apple):
     """Класс «плохого» яблока (уменьшает длину змейки)."""
@@ -111,9 +115,9 @@ class Stone(Apple):
 class Snake(GameObject):
     """Класс змейки."""
 
-    def __init__(self, body_color=SNAKE_COLOR):
-        """Инициализирует змейку в центре экрана, длиной 1."""
-        super().__init__(position=SNAKE_START_POS, body_color=body_color)
+    def __init__(self, position=SNAKE_START_POS, body_color=SNAKE_COLOR):
+        """Инициализирует змейку в заданной позиции, длиной 1."""
+        super().__init__(position=position, body_color=body_color)
         self.length = 1
         self.positions = [self.position]
         self.direction = RIGHT
@@ -126,7 +130,7 @@ class Snake(GameObject):
     def reset(self):
         """Сбрасывает змейку в начальное состояние."""
         self.length = 1
-        self.positions = [SNAKE_START_POS]
+        self.positions = [self.position]
         self.direction = choice([UP, DOWN, LEFT, RIGHT])
         self.last = None
 
@@ -152,7 +156,7 @@ class Snake(GameObject):
 
     def draw(self):
         """Отрисовывает только голову и затирает хвост."""
-        self.draw_cell(self.positions[0])          # голова
+        self.draw_cell(self.get_head_position())          # голова
         if self.last:
             last_rect = pg.Rect(self.last, (GRID_SIZE, GRID_SIZE))
             pg.draw.rect(screen, BOARD_BACKGROUND_COLOR, last_rect)
@@ -190,6 +194,18 @@ def get_occupied_positions(snake, apple, bad_apple, stones):
     )
 
 
+def reset_positions(snake, apple, bad_apple, stones):
+    """Перемещает яблоки и камни на свободные клетки после сброса."""
+    occupied = set(snake.positions)
+    apple.randomize_position(occupied)
+    occupied.add(apple.position)
+    bad_apple.randomize_position(occupied)
+    occupied.add(bad_apple.position)
+    for stone in stones:
+        stone.randomize_position(occupied)
+        occupied.add(stone.position)
+
+
 def check_collisions(snake, apple, bad_apple, stones):
     """Проверяет столкновения с яблоком, плохим яблоком, камнями и собой."""
     head = snake.get_head_position()
@@ -214,12 +230,13 @@ def check_collisions(snake, apple, bad_apple, stones):
     elif head in {stone.position for stone in stones}:
         snake.reset()
         screen.fill(BOARD_BACKGROUND_COLOR)
+        reset_positions(snake, apple, bad_apple, stones)
 
-    # Столкновение с собой (возможно только при длине >= 4,
-    # так как минимальная фигура для самопересечения — квадрат 2x2)
-    elif snake.length >= 4 and head in snake.positions[1:]:
+    # Столкновение с собой
+    elif head in snake.positions[4:]:
         snake.reset()
         screen.fill(BOARD_BACKGROUND_COLOR)
+        reset_positions(snake, apple, bad_apple, stones)
 
 
 def main():
@@ -237,14 +254,7 @@ def main():
     stones = [Stone() for _ in range(NUM_STONES)]
 
     # Первоначальная расстановка без пересечений
-    occupied = set(snake.positions)
-    apple.randomize_position(occupied)
-    occupied.add(apple.position)
-    bad_apple.randomize_position(occupied)
-    occupied.add(bad_apple.position)
-    for stone in stones:
-        stone.randomize_position(occupied)
-        occupied.add(stone.position)
+    reset_positions(snake, apple, bad_apple, stones)
 
     # Один раз заливаем фон
     screen.fill(BOARD_BACKGROUND_COLOR)
